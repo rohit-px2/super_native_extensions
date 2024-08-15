@@ -49,6 +49,13 @@ class DeferredMenuPreview {
 
 typedef ContextMenuIsAllowed = bool Function(Offset location);
 
+/// Control opening and closing of context menu programatically
+class ContextMenuControl {
+
+}
+
+typedef OnShowContextMenu = Future<void> Function(Offset, Listenable, dynamic Function(bool));
+
 class ContextMenuWidget extends StatelessWidget {
   ContextMenuWidget({
     super.key,
@@ -60,8 +67,11 @@ class ContextMenuWidget extends StatelessWidget {
     required this.menuProvider,
     this.iconTheme,
     this.contextMenuIsAllowed = _defaultContextMenuIsAllowed,
+    this.desktopDetectorWidgetBuilder,
     MobileMenuWidgetBuilder? mobileMenuWidgetBuilder,
     DesktopMenuWidgetBuilder? desktopMenuWidgetBuilder,
+    // Inject custom detection behaviour (desktop only)
+    // Meant for menubars (left click on buttons, keyboard shortcuts)
   })  : assert(previewBuilder == null || deferredPreviewBuilder == null,
             'Cannot use both previewBuilder and deferredPreviewBuilder'),
         mobileMenuWidgetBuilder =
@@ -80,6 +90,7 @@ class ContextMenuWidget extends StatelessWidget {
   final Widget child;
   final MobileMenuWidgetBuilder mobileMenuWidgetBuilder;
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
+  final DesktopDetectorWidgetBuilder? desktopDetectorWidgetBuilder;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -111,6 +122,7 @@ class ContextMenuWidget extends StatelessWidget {
             contextMenuIsAllowed: contextMenuIsAllowed,
             iconTheme: iconTheme,
             menuWidgetBuilder: desktopMenuWidgetBuilder,
+            desktopDetectorWidgetBuilder: desktopDetectorWidgetBuilder,
             child: child!,
           );
         }

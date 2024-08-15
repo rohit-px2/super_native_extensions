@@ -135,6 +135,31 @@ class _ContextMenuDetectorState extends State<_ContextMenuDetector> {
   }
 }
 
+typedef DesktopDetectorWidgetBuilder = Widget Function({
+  required BuildContext context,
+  required HitTestBehavior hitTestBehavior,
+  required ContextMenuIsAllowed contextMenuIsAllowed,
+  required OnShowContextMenu onShowContextMenu,
+  /// The actual context menu widget.
+  required Widget child,
+});
+
+_ContextMenuDetector _defaultDesktopDetectorWidgetBuilder({
+  required BuildContext context,
+  required HitTestBehavior hitTestBehavior,
+  required ContextMenuIsAllowed contextMenuIsAllowed,
+  required OnShowContextMenu onShowContextMenu,
+  /// The actual context menu widget.
+  required Widget child
+}) {
+  return _ContextMenuDetector(
+    hitTestBehavior: hitTestBehavior,
+    contextMenuIsAllowed: contextMenuIsAllowed,
+    onShowContextMenu: onShowContextMenu,
+    child: child,
+  );
+}
+
 class DesktopContextMenuWidget extends StatelessWidget {
   const DesktopContextMenuWidget({
     super.key,
@@ -143,13 +168,16 @@ class DesktopContextMenuWidget extends StatelessWidget {
     required this.menuProvider,
     required this.contextMenuIsAllowed,
     required this.menuWidgetBuilder,
+    DesktopDetectorWidgetBuilder? desktopDetectorWidgetBuilder,
     this.iconTheme,
-  });
+  }): desktopDetectorWidgetBuilder =  
+        desktopDetectorWidgetBuilder ?? _defaultDesktopDetectorWidgetBuilder;
 
   final HitTestBehavior hitTestBehavior;
   final MenuProvider menuProvider;
   final ContextMenuIsAllowed contextMenuIsAllowed;
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
+  final DesktopDetectorWidgetBuilder desktopDetectorWidgetBuilder;
   final Widget child;
 
   /// Base icon theme for menu icons. The size will be overridden depending
@@ -158,7 +186,8 @@ class DesktopContextMenuWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _ContextMenuDetector(
+    return desktopDetectorWidgetBuilder(
+      context: context,
       hitTestBehavior: hitTestBehavior,
       contextMenuIsAllowed: contextMenuIsAllowed,
       onShowContextMenu: (position, pointerUpListenable, onMenuresolved) async {

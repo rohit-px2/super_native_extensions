@@ -1,4 +1,11 @@
+import 'dart:async';
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:mutex/mutex.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
@@ -110,6 +117,163 @@ class _BaseContextMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ContextMenuWidget(
+      child: const Item(
+        child: Text('Base Context Menu'),
+      ),
+      menuProvider: (_) {
+        return Menu(
+          children: [
+            MenuAction(title: 'Menu Item 1', callback: () {}),
+            MenuAction(title: 'Menu Item 2', callback: () {}),
+            MenuAction(title: 'Menu Item 3', callback: () {}),
+            MenuSeparator(),
+            Menu(title: 'Submenu', children: [
+              MenuAction(title: 'Submenu Item 1', callback: () {}),
+              MenuAction(title: 'Submenu Item 2', callback: () {}),
+              Menu(title: 'Nested Submenu', children: [
+                MenuAction(title: 'Submenu Item 1', callback: () {}),
+                MenuAction(title: 'Submenu Item 2', callback: () {}),
+              ]),
+            ]),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ContextMenuLClickDetector extends StatefulWidget {
+  const _ContextMenuLClickDetector({
+    required this.hitTestBehavior,
+    required this.contextMenuIsAllowed,
+    required this.onShowContextMenu,
+    required this.child,
+  });
+
+  final Widget child;
+  final HitTestBehavior hitTestBehavior;
+  final ContextMenuIsAllowed contextMenuIsAllowed;
+  final Future<void> Function(Offset, Listenable, Function(bool))
+      onShowContextMenu;
+
+  @override
+  State<StatefulWidget> createState() => _ContextMenuLCickDetectorState();
+}
+
+class _ContextMenuLCickDetectorState extends State<_ContextMenuLClickDetector> {
+  int? _pointerDown;
+  Stopwatch? _pointerDownStopwatch;
+
+  final _onPointerUp = ChangeNotifier();
+
+  // Prevent nested detectors from showing context menu.
+  static _ContextMenuLCickDetectorState? _activeDetector;
+
+  static final _mutex = Mutex();
+
+  bool _canAcceptEvent(PointerDownEvent event) {
+    if (event.kind != PointerDeviceKind.mouse) {
+      return false;
+    }
+    if (event.buttons == kPrimaryButton) {
+      return widget.contextMenuIsAllowed(event.position);
+    }
+
+    return false;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _mutex.protect(() async {
+      if (_activeDetector == this) {
+        _activeDetector = null;
+      }
+    });
+  }
+
+  void _showContextMenu(
+    Offset position,
+    Listenable onPointerUp,
+    ValueChanged<bool> onMenuResolved,
+    VoidCallback onClose,
+  ) async {
+    try {
+      await widget.onShowContextMenu(position, onPointerUp, (value) {
+        onMenuResolved(value);
+      });
+    } finally {
+      onClose();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: widget.hitTestBehavior,
+      onPointerDown: (event) {
+        _mutex.protect(() async {
+          if (_activeDetector != null) {
+            return;
+          }
+          if (_canAcceptEvent(event)) {
+            final menuResolvedCompleter = Completer<bool>();
+            _showContextMenu(event.position, _onPointerUp, (value) {
+              menuResolvedCompleter.complete(value);
+            }, () {
+              _mutex.protect(() async {
+                if (_activeDetector == this) {
+                  _activeDetector = null;
+                }
+              });
+            });
+            final menuResolved = await menuResolvedCompleter.future;
+            if (menuResolved) {
+              _activeDetector = this;
+              _pointerDown = event.pointer;
+              _pointerDownStopwatch = Stopwatch()..start();
+            }
+          }
+        });
+      },
+      onPointerUp: (event) {
+        if (_pointerDown == event.pointer) {
+          _activeDetector = null;
+          _pointerDown = null;
+          // Pointer up would trigger currently selected item. Make sure we don't
+          // do this on simple right click.
+          if ((_pointerDownStopwatch?.elapsedMilliseconds ?? 0) > 300) {
+            // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+            _onPointerUp.notifyListeners();
+          }
+          _pointerDownStopwatch = null;
+        }
+      },
+      child: widget.child,
+    );
+  }
+}
+
+_ContextMenuLClickDetector _lClickDetector({
+  required Widget child,
+  required BuildContext context,
+  required ContextMenuIsAllowed contextMenuIsAllowed,
+  required HitTestBehavior hitTestBehavior,
+  required OnShowContextMenu onShowContextMenu,
+}) {
+  return _ContextMenuLClickDetector(
+    hitTestBehavior: hitTestBehavior,
+    contextMenuIsAllowed: contextMenuIsAllowed,
+    onShowContextMenu: onShowContextMenu,
+    child: child
+  );
+}
+
+class _BaseContextMenuWithLClickDetector extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ContextMenuWidget(
+      desktopDetectorWidgetBuilder: _lClickDetector,
       child: const Item(
         child: Text('Base Context Menu'),
       ),
@@ -375,6 +539,11 @@ class MainApp extends StatelessWidget {
                     description:
                         const Text('Base context menu, without drag & drop.'),
                     child: _BaseContextMenu(),
+                  ),
+                  Section(
+                    description:
+                      const Text('Base context menu with left-click detection.'),
+                    child: _BaseContextMenuWithLClickDetector()
                   ),
                   Section(
                     description:
