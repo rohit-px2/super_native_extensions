@@ -47,5 +47,6 @@ abstract class DesktopMenuWidgetBuilder {
     Key innerKey,
     DesktopMenuButtonState state,
     MenuElement element,
+    VoidCallback onActivate,
   );
 }

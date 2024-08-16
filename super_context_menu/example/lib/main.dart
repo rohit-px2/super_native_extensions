@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -299,6 +300,423 @@ class _BaseContextMenuWithLClickDetector extends StatelessWidget {
   }
 }
 
+extension on SingleActivator {
+  String stringRepresentation() {
+    return [
+      if (control) 'Ctrl',
+      if (alt) 'Alt',
+      if (meta) defaultTargetPlatform == TargetPlatform.macOS ? 'Cmd' : 'Meta',
+      if (shift) 'Shift',
+      trigger.keyLabel,
+    ].join('+');
+  }
+}
+
+extension on DesktopMenuInfo {
+  bool get hasAnyCheckedItems => (resolvedChildren.any((element) =>
+      element is MenuAction && element.state != MenuActionState.none));
+}
+
+class MenuAcceleratorBinding extends StatefulWidget {
+  final Widget child;
+  const MenuAcceleratorBinding({
+    super.key,
+    required this.child,
+  });
+
+  @override
+  State<MenuAcceleratorBinding> createState() => MenuAcceleratorBindingState();
+}
+
+class MenuAcceleratorBindingState extends State<MenuAcceleratorBinding> {
+  final subtreeFocusNode = FocusScopeNode();
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    subtreeFocusNode.dispose();
+    super.dispose();
+  }
+
+  bool showAccelerators() => subtreeFocusNode.hasFocus;
+
+  static MenuAcceleratorBindingState of(BuildContext context) {
+    return maybeOf(context)!;
+  }
+
+  static MenuAcceleratorBindingState? maybeOf(BuildContext context) {
+    return context.findAncestorStateOfType<MenuAcceleratorBindingState>();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return FocusScope(
+      node: subtreeFocusNode,
+      child: widget.child
+    );
+  }
+}
+
+class CustomMenuAcceleratorLabel extends StatefulWidget {
+  final String label;
+  final MenuAcceleratorChildBuilder labelBuilder;
+  final VoidCallback onInvoke;
+
+  const CustomMenuAcceleratorLabel({
+    required this.label,
+    required this.onInvoke,
+    this.labelBuilder = MenuAcceleratorLabel.defaultLabelBuilder,
+    super.key
+  });
+
+  @override
+  State<CustomMenuAcceleratorLabel> createState() => _CustomMenuAcceleratorLabelState();
+}
+
+
+/// Whether [defaultTargetPlatform] is an Apple platform (Mac or iOS).
+bool get _isApple {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.iOS:
+    case TargetPlatform.macOS:
+      return true;
+    case TargetPlatform.android:
+    case TargetPlatform.fuchsia:
+    case TargetPlatform.linux:
+    case TargetPlatform.windows:
+      return false;
+  }
+}
+
+
+bool get _platformSupportsAccelerators {
+  // On iOS and macOS, pressing the Option key (a.k.a. the Alt key) causes a
+  // different set of characters to be generated, and the native menus don't
+  // support accelerators anyhow, so we just disable accelerators on these
+  // platforms.
+  return !_isApple;
+}
+
+class _CustomMenuAcceleratorLabelState extends State<CustomMenuAcceleratorLabel> {
+  late String _displayLabel;
+  int _acceleratorIndex = -1;
+  MenuAcceleratorBindingState? _binding;
+
+  ShortcutRegistry? _shortcutRegistry;
+  ShortcutRegistryEntry? _shortcutRegistryEntry;
+  bool _showAccelerators = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_platformSupportsAccelerators) {
+      HardwareKeyboard.instance.addHandler(_listenToKeyEvent);
+    }
+    _updateDisplayLabel();
+  }
+
+  @override
+  void dispose() {
+    assert(_platformSupportsAccelerators || _shortcutRegistryEntry == null);
+    _displayLabel = '';
+    if (_platformSupportsAccelerators) {
+      _shortcutRegistryEntry?.dispose();
+      _shortcutRegistryEntry = null;
+      _shortcutRegistry = null;
+      HardwareKeyboard.instance.removeHandler(_listenToKeyEvent);
+    }
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_platformSupportsAccelerators) {
+      return;
+    }
+    _shortcutRegistry = ShortcutRegistry.maybeOf(context);
+    setState(() {
+      _updateShowAccelerators();
+      _updateAcceleratorShortcut();
+    });
+  }
+
+  @override
+  void didUpdateWidget(CustomMenuAcceleratorLabel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.label != oldWidget.label) {
+      _updateDisplayLabel();
+    }
+  }
+
+  void _updateShowAccelerators() {
+    _showAccelerators = _binding?.showAccelerators() ?? false;
+  }
+
+  bool _listenToKeyEvent(KeyEvent event) {
+    assert(_platformSupportsAccelerators);
+    setState(() {
+      _updateShowAccelerators();
+      _updateAcceleratorShortcut();
+    });
+    // Just listening, so it doesn't ever handle a key.
+    return false;
+  }
+
+  void _updateAcceleratorShortcut() {
+    assert(_platformSupportsAccelerators);
+    _shortcutRegistryEntry?.dispose();
+    _shortcutRegistryEntry = null;
+    // Before registering an accelerator as a shortcut it should meet these
+    // conditions:
+    //
+    // 1) Is showing accelerators (i.e. Alt key is down).
+    // 2) Has an accelerator marker in the label.
+    // 3) Has an associated action callback for the label (from the
+    //    MenuAcceleratorCallbackBinding).
+    // 4) Is part of an anchor that either doesn't have a submenu, or doesn't
+    //    have any submenus currently open (only the "deepest" open menu should
+    //    have accelerator shortcuts registered).
+    if (_showAccelerators && _acceleratorIndex != -1) {
+      final String acceleratorCharacter = _displayLabel[_acceleratorIndex].toLowerCase();
+      _shortcutRegistryEntry = _shortcutRegistry?.addAll(
+        <ShortcutActivator, Intent>{
+          CharacterActivator(acceleratorCharacter): VoidCallbackIntent(widget.onInvoke),
+        },
+      );
+    }
+  }
+
+  void _updateDisplayLabel() {
+    _displayLabel = MenuAcceleratorLabel.stripAcceleratorMarkers(
+      widget.label,
+      setIndex: (int index) {
+        _acceleratorIndex = index;
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _binding = MenuAcceleratorBindingState.maybeOf(context);
+    _updateShowAccelerators();
+    _updateAcceleratorShortcut();
+    if (_binding == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {}));
+    }
+    final int index = _showAccelerators ? _acceleratorIndex : -1;
+    return widget.labelBuilder(context, _displayLabel, index);
+  }
+}
+
+class CustomDesktopWidgetBuilder extends DefaultDesktopMenuWidgetBuilder {
+  CustomDesktopWidgetBuilder({
+    super.maxWidth
+  });
+
+
+  static DefaultDesktopMenuTheme _themeForContext(BuildContext context) {
+    return DefaultDesktopMenuTheme.themeForBrightness(
+        MediaQuery.platformBrightnessOf(context));
+  }
+
+  IconData? _stateToIcon(MenuActionState state) {
+    switch (state) {
+      case MenuActionState.none:
+        return null;
+      case MenuActionState.checkOn:
+        return Icons.check;
+      case MenuActionState.checkOff:
+        return null;
+      case MenuActionState.checkMixed:
+        return Icons.remove;
+      case MenuActionState.radioOn:
+        return Icons.radio_button_on;
+      case MenuActionState.radioOff:
+        return Icons.radio_button_off;
+    }
+  }
+
+  @override
+  Widget buildMenuContainer(BuildContext context, DesktopMenuInfo menuInfo, Widget child) {
+    /// Building a new menu container indicates that a new 'menu' instance is being created.
+    /// In this case, we notify the currently active menu accelerator instance
+    /// that it will gain a new submenu.
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final theme = _themeForContext(context);
+    return Container(
+      decoration: theme.decorationOuter.copyWith(
+          borderRadius: BorderRadius.circular(6.0 + 1.0 / pixelRatio)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: EdgeInsets.all(1.0 / pixelRatio),
+          child: Container(
+            decoration: theme.decorationInner,
+            padding: const EdgeInsets.symmetric(vertical: 6.0),
+            child: DefaultTextStyle(
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 14.0,
+                decoration: TextDecoration.none,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: MenuAcceleratorBinding(
+                  child: GroupIntrinsicWidthContainer(child: child)
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  @override
+  Widget buildMenuItem(
+    BuildContext context,
+    DesktopMenuInfo menuInfo,
+    Key innerKey,
+    DesktopMenuButtonState state,
+    MenuElement element,
+    VoidCallback onActivate
+  ) {
+    final itemInfo = DesktopMenuItemInfo(
+      destructive: element is MenuAction && element.attributes.destructive,
+      disabled: element is MenuAction && element.attributes.disabled,
+      menuFocused: menuInfo.focused,
+      selected: state.selected,
+    );
+    final theme = _themeForContext(context);
+    final textStyle = theme.textStyleForItem(itemInfo);
+    final iconTheme = menuInfo.iconTheme.copyWith(
+      size: 16,
+      color: textStyle.color,
+    );
+    final stateIcon =
+        element is MenuAction ? _stateToIcon(element.state) : null;
+    final Widget? prefix;
+    if (stateIcon != null) {
+      prefix = Icon(
+        stateIcon,
+        size: 16,
+        color: iconTheme.color,
+      );
+    } else if (menuInfo.hasAnyCheckedItems) {
+      prefix = const SizedBox(width: 16);
+    } else {
+      prefix = null;
+    }
+    final image = element.image?.asWidget(iconTheme);
+
+    final Widget? suffix;
+    if (element is Menu) {
+      suffix = Icon(
+        Icons.chevron_right_outlined,
+        size: 18,
+        color: iconTheme.color,
+      );
+    } else if (element is MenuAction) {
+      final activator = element.activator?.stringRepresentation();
+      if (activator != null) {
+        suffix = Padding(
+          padding: const EdgeInsetsDirectional.only(end: 6),
+          child: Text(
+            activator,
+            style: theme.textStyleForItemActivator(itemInfo, textStyle),
+          ),
+        );
+      } else {
+        suffix = null;
+      }
+    } else {
+      suffix = null;
+    }
+
+    final child = element is DeferredMenuElement
+        ? const Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.0,
+                color: Colors.grey,
+              ),
+            ),
+          )
+          : CustomMenuAcceleratorLabel(label: element.title ?? '', onInvoke: onActivate);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6.0),
+      child: Container(
+        key: innerKey,
+        padding: const EdgeInsets.all(5),
+        decoration: theme.decorationForItem(itemInfo),
+        child: Row(
+          children: [
+            if (prefix != null) prefix,
+            if (prefix != null) const SizedBox(width: 6.0),
+            if (image != null) image,
+            if (image != null) const SizedBox(width: 4.0),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                child: child,
+              ),
+            ),
+            GroupIntrinsicWidth(
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (suffix != null) const SizedBox(width: 6.0),
+                  if (suffix != null) suffix,
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BaseContextMenuWithAccelerators extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ContextMenuWidget(
+      desktopMenuWidgetBuilder: CustomDesktopWidgetBuilder(),
+      child: const Item(
+        child: Text('Base Context Menu'),
+      ),
+      menuProvider: (_) {
+        return Menu(
+          children: [
+            MenuAction(title: '&Open...', callback: () { print("open"); }),
+            MenuAction(title: '&New...', callback: () { print("new");  }),
+            MenuAction(title: '&Save...', callback: () { print("save"); }),
+            MenuSeparator(),
+            Menu(title: 'S&ubmenu', children: [
+              MenuAction(title: 'Submenu Item 1', callback: () {}),
+              MenuAction(title: '&Submenu Item 2', callback: () {}),
+              Menu(title: 'N&ested Submenu', children: [
+                MenuAction(title: 'Submenu Item 1', callback: () {}),
+                MenuAction(title: 'Submenu Item 2', callback: () {}),
+              ]),
+            ]),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _BaseContextMenuWithDrag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -544,6 +962,11 @@ class MainApp extends StatelessWidget {
                     description:
                       const Text('Base context menu with left-click detection.'),
                     child: _BaseContextMenuWithLClickDetector()
+                  ),
+                  Section(
+                    description:
+                      const Text('Base context menu, with keyboard accelerators (desktop only).'),
+                    child: _BaseContextMenuWithAccelerators(),
                   ),
                   Section(
                     description:

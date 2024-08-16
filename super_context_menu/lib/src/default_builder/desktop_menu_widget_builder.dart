@@ -265,6 +265,7 @@ class DefaultDesktopMenuWidgetBuilder extends DesktopMenuWidgetBuilder {
     Key innerKey,
     DesktopMenuButtonState state,
     MenuElement element,
+    VoidCallback onActivate,
   ) {
     final theme = _themeForContext(context);
     final itemInfo = DesktopMenuItemInfo(

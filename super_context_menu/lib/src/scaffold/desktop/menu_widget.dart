@@ -143,6 +143,9 @@ class MenuWidgetState extends State<MenuWidget>
         element.callback.call();
       });
       widget.delegate.hide(itemSelected: true);
+    } else if (element is Menu && !entry.focusNode.hasFocus) {
+      entry.focusNode.requestFocus();
+      _didHover(entry);
     }
   }
 
@@ -454,12 +457,14 @@ class _MenuItemWidgetState extends State<_MenuItemWidget> {
     }
   }
 
+  void onActivate() {
+    widget.delegate._itemActivated(widget.entry);
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapUp: (_) {
-        widget.delegate._itemActivated(widget.entry);
-      },
+      onTapUp: (_) => onActivate(),
       child: Focus(
         focusNode: widget.entry.focusNode,
         canRequestFocus: widget.entry.focusable,
@@ -483,6 +488,7 @@ class _MenuItemWidgetState extends State<_MenuItemWidget> {
               selected: widget.isSelected,
             ),
             widget.entry.element,
+            onActivate,
           ),
         ),
       ),
