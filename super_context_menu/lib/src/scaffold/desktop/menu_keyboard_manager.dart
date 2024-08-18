@@ -7,6 +7,12 @@ enum EnterMenuFrom {
   lastElement,
 }
 
+class PopMenuResult {
+  final bool pop;
+  final bool allowPopLastMenu;
+  PopMenuResult(this.pop, { this.allowPopLastMenu = false });
+}
+
 class MenuKeyboardManagerEvent {
   final BuildContext context;
   /// [KeyEvent]s besides [KeyDownEvent] are ignored.
@@ -42,7 +48,7 @@ abstract class MenuKeyboardManager {
   /// [true] is returned, the menu item is expanded into a submenu.
   MenuKeyboardResponse<bool>? expandMenuItemOnKey(MenuKeyboardManagerEvent event);
   /// Pops the currently active [Menu] if [true] is returned.
-  MenuKeyboardResponse<bool>? popMenuOnKey(MenuKeyboardManagerEvent event);
+  MenuKeyboardResponse<PopMenuResult>? popMenuOnKey(MenuKeyboardManagerEvent event);
   /// Moves to the next menu item if [true] is returned.
   /// Note: This is called only when a menu item is focused. If the menu
   /// is focused, [enterMenuOnKey] is called.
@@ -107,7 +113,7 @@ class DefaultMenuKeyboardManager implements MenuKeyboardManager {
     final key = event.keyEvent.logicalKey;
     // Return 
     if (key == getHorizontalKey(event.context, false)) {
-      return _Response(true);
+      return _Response(PopMenuResult(true));
     }
     return null;
   }
@@ -122,7 +128,7 @@ class DefaultMenuKeyboardManager implements MenuKeyboardManager {
   @override
   activateMenuItemOnKey(MenuKeyboardManagerEvent event)
     => switch(event.keyEvent.logicalKey) {
-      _Key.enter => _Response(true),
+      _Key.enter => _Response(true, consume: false),
       _ => null
   };
   

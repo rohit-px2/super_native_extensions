@@ -718,6 +718,53 @@ class _BaseContextMenuWithAccelerators extends StatelessWidget {
   }
 }
 
+class CustomMenuKeyboardManager extends DefaultMenuKeyboardManager {
+  const CustomMenuKeyboardManager();
+
+  /// Just 'pop' the menu when pressing Esc
+  @override
+  popMenuOnKey(MenuKeyboardManagerEvent event)
+    => switch(event.keyEvent.logicalKey) {
+      LogicalKeyboardKey.escape => 
+        MenuKeyboardResponse(PopMenuResult(true, allowPopLastMenu: true)),
+      _ => null,
+    };
+  /// Also, have to override the default behavior of 'quit'
+  /// so that it doesn't also quit out when Esc is pressed.
+  @override
+  quitContextMenuOnKey(MenuKeyboardManagerEvent event) => null;
+}
+
+class _BaseContextMenuWithCustomKeyboardShortcuts extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ContextMenuWidget(
+      menuKeyboardManager: const CustomMenuKeyboardManager(),
+      child: const Item(
+        child: Text('Base Context Menu'),
+      ),
+      menuProvider: (_) {
+        return Menu(
+          children: [
+            MenuAction(title: 'Open...', callback: () {}),
+            MenuAction(title: 'New...', callback: () {}),
+            MenuAction(title: 'Save...', callback: () {}),
+            MenuSeparator(),
+            Menu(title: 'Submenu', children: [
+              MenuAction(title: 'Submenu Item 1', callback: () {}),
+              MenuAction(title: 'Submenu Item 2', callback: () {}),
+              Menu(title: 'N&ested Submenu', children: [
+                MenuAction(title: 'Submenu Item 1', callback: () {}),
+                MenuAction(title: 'Submenu Item 2', callback: () {}),
+              ]),
+            ]),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _ContextMenuKeyboardDetector extends StatefulWidget {
   const _ContextMenuKeyboardDetector({
     required this.hitTestBehavior,
@@ -1176,6 +1223,11 @@ class MainApp extends StatelessWidget {
                     description:
                       const Text('Base context menu, with keyboard accelerators (desktop only).'),
                     child: _BaseContextMenuWithAccelerators(),
+                  ),
+                  Section(
+                    description:
+                      const Text('Base context menu, with custom keyboard actions. Press Esc to pop one level of the menu.'),
+                    child: _BaseContextMenuWithCustomKeyboardShortcuts(),
                   ),
                   Section(
                     description:

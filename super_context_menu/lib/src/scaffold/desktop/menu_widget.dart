@@ -257,7 +257,13 @@ class MenuWidgetState extends State<MenuWidget>
 
         final popMenu = keyboardManager.popMenuOnKey(event);
         switch(popMenu?.result) {
-          case true: widget.delegate.popUntil(widget.parentMenu!);
+          case PopMenuResult(pop: true, :final allowPopLastMenu): {
+            if (allowPopLastMenu && widget.parentMenu == null) {
+              widget.delegate.hide(itemSelected: false);
+            } else if (widget.parentMenu != null) {
+              widget.delegate.popUntil(widget.parentMenu!);
+            }
+          }
           case _: break;
         }
         if (popMenu != null) return popMenu.desiredResult;
