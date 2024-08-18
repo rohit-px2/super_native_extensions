@@ -10,6 +10,7 @@ import 'default_builder/mobile_menu_widget_builder.dart';
 import 'desktop.dart';
 import 'menu_model.dart';
 import 'mobile.dart';
+import 'scaffold/desktop/menu_keyboard_manager.dart';
 import 'scaffold/desktop/menu_widget_builder.dart';
 import 'scaffold/mobile/menu_widget_builder.dart';
 
@@ -68,10 +69,9 @@ class ContextMenuWidget extends StatelessWidget {
     this.iconTheme,
     this.contextMenuIsAllowed = _defaultContextMenuIsAllowed,
     this.desktopDetectorWidgetBuilder,
+    this.menuKeyboardManager,
     MobileMenuWidgetBuilder? mobileMenuWidgetBuilder,
     DesktopMenuWidgetBuilder? desktopMenuWidgetBuilder,
-    // Inject custom detection behaviour (desktop only)
-    // Meant for menubars (left click on buttons, keyboard shortcuts)
   })  : assert(previewBuilder == null || deferredPreviewBuilder == null,
             'Cannot use both previewBuilder and deferredPreviewBuilder'),
         mobileMenuWidgetBuilder =
@@ -91,6 +91,7 @@ class ContextMenuWidget extends StatelessWidget {
   final MobileMenuWidgetBuilder mobileMenuWidgetBuilder;
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
   final DesktopDetectorWidgetBuilder? desktopDetectorWidgetBuilder;
+  final MenuKeyboardManager? menuKeyboardManager;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -123,6 +124,7 @@ class ContextMenuWidget extends StatelessWidget {
             iconTheme: iconTheme,
             menuWidgetBuilder: desktopMenuWidgetBuilder,
             desktopDetectorWidgetBuilder: desktopDetectorWidgetBuilder,
+            menuKeyboardManager: menuKeyboardManager,
             child: child!,
           );
         }

@@ -7,6 +7,7 @@ import 'package:pixel_snap/pixel_snap.dart';
 
 import '../../menu_model.dart';
 import '../common/deferred_menu_items.dart';
+import 'menu_keyboard_manager.dart';
 import 'menu_widget_builder.dart';
 
 abstract class MenuWidgetDelegate {
@@ -48,6 +49,7 @@ class MenuWidget extends StatefulWidget {
     required this.focusMode,
     required this.iconTheme,
     required this.cache,
+    required this.keyboardManager,
   });
 
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
@@ -57,6 +59,7 @@ class MenuWidget extends StatefulWidget {
   final MenuWidgetDelegate delegate;
   final IconThemeData iconTheme;
   final DeferredMenuElementCache cache;
+  final MenuKeyboardManager keyboardManager;
 
   @override
   State<StatefulWidget> createState() => MenuWidgetState();
@@ -216,52 +219,59 @@ class MenuWidgetState extends State<MenuWidget>
     final menuInfo = _menuInfo();
     final child = FocusScope(
       onKeyEvent: (_, e) {
+        final keyboardManager = widget.keyboardManager;
         if (e is! KeyDownEvent && e is! KeyRepeatEvent) {
           return KeyEventResult.ignored;
         }
+        final event = MenuKeyboardManagerEvent(context, e);
+        
         if (_focusScope.hasPrimaryFocus) {
-          if (e.logicalKey == LogicalKeyboardKey.arrowDown ||
-              e.logicalKey == LogicalKeyboardKey.arrowLeft ||
-              e.logicalKey == LogicalKeyboardKey.arrowRight) {
-            _focusableChildEntries.firstOrNull?.focusNode.requestFocus();
-            return KeyEventResult.handled;
-          } else if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
-            _focusableChildEntries.lastOrNull?.focusNode.requestFocus();
-            return KeyEventResult.handled;
+          final enterMenu = keyboardManager.enterMenuOnKey(event);
+          switch(enterMenu?.result) {
+            case EnterMenuFrom.firstElement: {
+              _focusableChildEntries.firstOrNull?.focusNode.requestFocus();
+            }
+            case EnterMenuFrom.lastElement: {
+              _focusableChildEntries.lastOrNull?.focusNode.requestFocus();
+            }
+            case _: break;
           }
+          if (enterMenu != null) return enterMenu.desiredResult;
         }
 
         final selectedEntry = resolvedChildren
             .firstWhereOrNull((element) => element.focusNode.hasFocus);
         if (selectedEntry != null && selectedEntry.element is Menu) {
-          final trailingKey = getTrailingKey();
-          if (e.logicalKey == trailingKey ||
-              e.logicalKey == LogicalKeyboardKey.enter) {
-            widget.delegate.pushMenu(
+          final pushMenu = keyboardManager.expandMenuItemOnKey(event);
+          switch(pushMenu?.result) {
+            case true: widget.delegate.pushMenu(
               parent: widget.menu,
               menu: selectedEntry.element as Menu,
               context: selectedEntry.innerKey.currentContext!,
               focusMode: MenuWidgetFocusMode.firstItem,
             );
-            return KeyEventResult.handled;
+            case _: break;
           }
+          if (pushMenu != null) return pushMenu.desiredResult;
         }
 
-        final leadingKey =
-            getLeadingKey(currentItemHasMenu: selectedEntry?.element is Menu);
-
-        if (e.logicalKey == leadingKey) {
-          if (widget.parentMenu != null) {
-            widget.delegate.popUntil(widget.parentMenu!);
-            return KeyEventResult.handled;
-          }
-        } else if (e.logicalKey == LogicalKeyboardKey.escape) {
+        final popMenu = keyboardManager.popMenuOnKey(event);
+        switch(popMenu?.result) {
+          case true: widget.delegate.popUntil(widget.parentMenu!);
+          case _: break;
+        }
+        if (popMenu != null) return popMenu.desiredResult;
+        
+        final quitMenu = keyboardManager.quitContextMenuOnKey(event);
+        if (quitMenu?.result == true) {
           widget.delegate.hide(itemSelected: false);
-          return KeyEventResult.handled;
         }
+        if (quitMenu != null) return quitMenu.desiredResult;
 
-        if (selectedEntry != null && e.logicalKey == LogicalKeyboardKey.enter) {
-          _itemActivated(selectedEntry);
+        if (selectedEntry != null) {
+          final activateItem = keyboardManager.activateMenuItemOnKey(event);
+          if (activateItem?.result == true) _itemActivated(selectedEntry);
+          if (activateItem != null) return activateItem.desiredResult;
         }
 
         return KeyEventResult.ignored;

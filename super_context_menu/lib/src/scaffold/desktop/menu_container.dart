@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_context_menu/src/scaffold/common/deferred_menu_items.dart';
+import 'package:super_context_menu/src/scaffold/desktop/menu_keyboard_manager.dart';
 
 // ignore: implementation_imports
 import 'package:super_native_extensions/src/drag_interaction/util.dart';
@@ -28,6 +29,7 @@ class MenuContainer extends StatefulWidget {
     required this.menuWidgetBuilder,
     required this.delegate,
     required this.onInitialPointerUp,
+    required this.keyboardManager,
   });
 
   final Menu rootMenu;
@@ -36,6 +38,7 @@ class MenuContainer extends StatefulWidget {
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
   final MenuContainerDelegate delegate;
   final Listenable onInitialPointerUp;
+  final MenuKeyboardManager keyboardManager;
 
   @override
   State<StatefulWidget> createState() => _MenuContainerState();
@@ -155,6 +158,7 @@ class _MenuContainerState extends State<MenuContainer>
                   iconTheme: widget.iconTheme,
                   delegate: this,
                   cache: _deferredMenuElementCache,
+                  keyboardManager: widget.keyboardManager,
                 ),
               ),
             ),

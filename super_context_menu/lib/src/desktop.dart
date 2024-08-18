@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:super_context_menu/src/menu_internal.dart';
+import 'package:super_context_menu/src/scaffold/desktop/menu_keyboard_manager.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 
@@ -169,15 +170,19 @@ class DesktopContextMenuWidget extends StatelessWidget {
     required this.contextMenuIsAllowed,
     required this.menuWidgetBuilder,
     DesktopDetectorWidgetBuilder? desktopDetectorWidgetBuilder,
+    MenuKeyboardManager? menuKeyboardManager,
     this.iconTheme,
   }): desktopDetectorWidgetBuilder =  
-        desktopDetectorWidgetBuilder ?? _defaultDesktopDetectorWidgetBuilder;
+        desktopDetectorWidgetBuilder ?? _defaultDesktopDetectorWidgetBuilder,
+      menuKeyboardManager =
+        menuKeyboardManager ?? const DefaultMenuKeyboardManager();
 
   final HitTestBehavior hitTestBehavior;
   final MenuProvider menuProvider;
   final ContextMenuIsAllowed contextMenuIsAllowed;
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
   final DesktopDetectorWidgetBuilder desktopDetectorWidgetBuilder;
+  final MenuKeyboardManager menuKeyboardManager;
   final Widget child;
 
   /// Base icon theme for menu icons. The size will be overridden depending
@@ -269,6 +274,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
                 iconTheme: serializationOptions.iconTheme,
                 menu: handle!.menu,
                 menuWidgetBuilder: menuWidgetBuilder,
+                menuKeyboardManager: menuKeyboardManager,
                 onDone: (value) => completer.complete(value),
                 onInitialPointerUp: onInitialPointerUp,
                 position: globalPosition,
