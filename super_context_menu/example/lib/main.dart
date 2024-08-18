@@ -521,7 +521,8 @@ class CustomDesktopWidgetBuilder extends DefaultDesktopMenuWidgetBuilder {
 
   static DefaultDesktopMenuTheme _themeForContext(BuildContext context) {
     return DefaultDesktopMenuTheme.themeForBrightness(
-        MediaQuery.platformBrightnessOf(context));
+      Brightness.dark,
+    );
   }
 
   IconData? _stateToIcon(MenuActionState state) {
@@ -691,6 +692,214 @@ class _BaseContextMenuWithAccelerators extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ContextMenuWidget(
+      desktopMenuWidgetBuilder: CustomDesktopWidgetBuilder(),
+      child: const Item(
+        child: Text('Base Context Menu'),
+      ),
+      menuProvider: (_) {
+        return Menu(
+          children: [
+            MenuAction(title: '&Open...', callback: () { print("open"); }),
+            MenuAction(title: '&New...', callback: () { print("new");  }),
+            MenuAction(title: '&Save...', callback: () { print("save"); }),
+            MenuSeparator(),
+            Menu(title: 'S&ubmenu', children: [
+              MenuAction(title: 'Submenu Item 1', callback: () {}),
+              MenuAction(title: '&Submenu Item 2', callback: () {}),
+              Menu(title: 'N&ested Submenu', children: [
+                MenuAction(title: 'Submenu Item 1', callback: () {}),
+                MenuAction(title: 'Submenu Item 2', callback: () {}),
+              ]),
+            ]),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ContextMenuKeyboardDetector extends StatefulWidget {
+  const _ContextMenuKeyboardDetector({
+    required this.hitTestBehavior,
+    required this.contextMenuIsAllowed,
+    required this.onShowContextMenu,
+    required this.child,
+  });
+
+  final Widget child;
+  final HitTestBehavior hitTestBehavior;
+  final ContextMenuIsAllowed contextMenuIsAllowed;
+  final Future<void> Function(Offset, Listenable, Function(bool))
+      onShowContextMenu;
+
+  @override
+  State<StatefulWidget> createState() => _ContextMenuKeyboardDetectorState();
+}
+
+class KeyboardListenable extends Listenable {
+  @override
+  void addListener(VoidCallback listener) {
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+  }
+
+}
+
+class _ContextMenuKeyboardDetectorState extends State<_ContextMenuKeyboardDetector> {
+  int? _pointerDown;
+  Stopwatch? _pointerDownStopwatch;
+
+  final _onPointerUp = ChangeNotifier();
+  final _focusScopeNode = FocusScopeNode();
+
+  // Prevent nested detectors from showing context menu.
+  static _ContextMenuKeyboardDetectorState? _activeDetector;
+
+  static final _mutex = Mutex();
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_listenToKeyEvent);
+  }
+
+  static bool _ctrlIsPressed() {
+    return HardwareKeyboard.instance.logicalKeysPressed.intersection(
+      <LogicalKeyboardKey>{
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.controlRight,
+        LogicalKeyboardKey.control,
+      },
+    ).isNotEmpty;
+ 
+  }
+  bool _listenToKeyEvent(KeyEvent e) {
+    if (_ctrlIsPressed() && _activeDetector == null) {
+      _showKeyboardContextMenu();
+    }
+    return false;
+  }
+
+  bool _canAcceptEvent(PointerDownEvent event) {
+    if (event.kind != PointerDeviceKind.mouse) {
+      return false;
+    }
+    if (event.buttons == kPrimaryButton) {
+      return widget.contextMenuIsAllowed(event.position);
+    }
+
+    return false;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _mutex.protect(() async { _unsetActiveDetector(); });
+    HardwareKeyboard.instance.removeHandler(_listenToKeyEvent);
+  }
+
+  void _showContextMenu(
+    Offset position,
+    Listenable onPointerUp,
+    ValueChanged<bool> onMenuResolved,
+    VoidCallback onClose,
+  ) async {
+    try {
+      await widget.onShowContextMenu(position, onPointerUp, (value) {
+        onMenuResolved(value);
+      });
+    } finally {
+      onClose();
+    }
+  }
+
+  void _unsetActiveDetector() {
+    if (_activeDetector == this) {
+      _activeDetector = null;
+    }
+  }
+
+  void _showKeyboardContextMenu() async {
+    /// Default position: bottom of child widget.
+    final renderBox = context.findRenderObject() as RenderBox;
+    final localShowPos = renderBox.size.bottomLeft(Offset.zero);
+    final position = renderBox.localToGlobal(localShowPos);
+    final menuResolvedCompleter = Completer<bool>();
+    _showContextMenu(position, KeyboardListenable(), (value) {
+      menuResolvedCompleter.complete(value);
+    }, () => _mutex.protect(() async { _unsetActiveDetector(); }));
+    final menuResolved = await menuResolvedCompleter.future;
+    if (menuResolved) {
+      _activeDetector = this;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusScope(
+      node: _focusScopeNode,
+      child: Listener(
+        behavior: widget.hitTestBehavior,
+        onPointerDown: (event) {
+          _mutex.protect(() async {
+            if (_activeDetector != null) {
+              return;
+            }
+            if (_canAcceptEvent(event)) {
+              final menuResolvedCompleter = Completer<bool>();
+              _showContextMenu(event.position, _onPointerUp, (value) {
+                menuResolvedCompleter.complete(value);
+              }, () {
+                _mutex.protect(() async { _unsetActiveDetector(); });
+              });
+              final menuResolved = await menuResolvedCompleter.future;
+              if (menuResolved) {
+                _activeDetector = this;
+                _pointerDown = event.pointer;
+                _pointerDownStopwatch = Stopwatch()..start();
+              }
+            }
+          });
+        },
+        onPointerUp: (event) {
+          if (_pointerDown == event.pointer) {
+            _activeDetector = null;
+            _pointerDown = null;
+            // Pointer up would trigger currently selected item. Make sure we don't
+            // do this on simple right click.
+            if ((_pointerDownStopwatch?.elapsedMilliseconds ?? 0) > 300) {
+              // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+              _onPointerUp.notifyListeners();
+            }
+            _pointerDownStopwatch = null;
+          }
+        },
+        child: widget.child,
+      )
+    );
+  }
+}
+
+_ContextMenuKeyboardDetector _keyboardDetector({
+  required Widget child,
+  required BuildContext context,
+  required ContextMenuIsAllowed contextMenuIsAllowed,
+  required HitTestBehavior hitTestBehavior,
+  required OnShowContextMenu onShowContextMenu,
+}) {
+  return _ContextMenuKeyboardDetector(
+    hitTestBehavior: hitTestBehavior,
+    contextMenuIsAllowed: contextMenuIsAllowed,
+    onShowContextMenu: onShowContextMenu,
+    child: child
+  );
+}
+class _KeyboardOpenableContextMenu extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return ContextMenuWidget(
+      desktopDetectorWidgetBuilder: _keyboardDetector,
       desktopMenuWidgetBuilder: CustomDesktopWidgetBuilder(),
       child: const Item(
         child: Text('Base Context Menu'),
@@ -967,6 +1176,11 @@ class MainApp extends StatelessWidget {
                     description:
                       const Text('Base context menu, with keyboard accelerators (desktop only).'),
                     child: _BaseContextMenuWithAccelerators(),
+                  ),
+                  Section(
+                    description:
+                      const Text('Base context menu, with accelerators that opens when you press Alt.'),
+                    child: _KeyboardOpenableContextMenu(),
                   ),
                   Section(
                     description:
