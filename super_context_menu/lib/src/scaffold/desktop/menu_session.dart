@@ -5,6 +5,8 @@ import '../../menu_model.dart';
 import 'menu_container.dart';
 import 'menu_keyboard_manager.dart';
 
+Widget _defaultOverlayBuilder(BuildContext context, Widget child) => child;
+
 class ContextMenuSession implements MenuContainerDelegate {
   ContextMenuSession({
     required BuildContext context,
@@ -15,12 +17,13 @@ class ContextMenuSession implements MenuContainerDelegate {
     required IconThemeData iconTheme,
     Listenable? onInitialPointerUp,
     Listenable? requestCloseNotifier,
+    DesktopMenuOverlayBuilder? menuOverlayBuilder,
     required this.onDone,
   }) {
     final overlay = Overlay.of(context, rootOverlay: true);
+    final overlayBuilder = menuOverlayBuilder ?? _defaultOverlayBuilder;
     _entry = OverlayEntry(
-      builder: (context) {
-        return MenuContainer(
+      builder: (context) => overlayBuilder.call(context, MenuContainer(
           rootMenu: menu,
           rootMenuPosition: position,
           delegate: this,
@@ -29,8 +32,8 @@ class ContextMenuSession implements MenuContainerDelegate {
           onInitialPointerUp: onInitialPointerUp,
           requestCloseNotifier: requestCloseNotifier,
           keyboardManager: menuKeyboardManager,
-        );
-      },
+        )
+      ),
       opaque: false,
     );
     overlay.insert(_entry);

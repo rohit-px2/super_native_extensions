@@ -70,6 +70,7 @@ class ContextMenuWidget extends StatelessWidget {
     this.contextMenuIsAllowed = _defaultContextMenuIsAllowed,
     this.desktopDetectorWidgetBuilder,
     this.menuKeyboardManager,
+    this.desktopMenuOverlayBuilder,
     MobileMenuWidgetBuilder? mobileMenuWidgetBuilder,
     DesktopMenuWidgetBuilder? desktopMenuWidgetBuilder,
   })  : assert(previewBuilder == null || deferredPreviewBuilder == null,
@@ -92,6 +93,7 @@ class ContextMenuWidget extends StatelessWidget {
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
   final DesktopDetectorWidgetBuilder? desktopDetectorWidgetBuilder;
   final MenuKeyboardManager? menuKeyboardManager;
+  final DesktopMenuOverlayBuilder? desktopMenuOverlayBuilder;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -125,6 +127,7 @@ class ContextMenuWidget extends StatelessWidget {
             menuWidgetBuilder: desktopMenuWidgetBuilder,
             desktopDetectorWidgetBuilder: desktopDetectorWidgetBuilder,
             menuKeyboardManager: menuKeyboardManager,
+            menuOverlayBuilder: desktopMenuOverlayBuilder,
             child: child!,
           );
         }

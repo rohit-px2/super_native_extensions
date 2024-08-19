@@ -168,6 +168,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
     required this.menuWidgetBuilder,
     DesktopDetectorWidgetBuilder? desktopDetectorWidgetBuilder,
     MenuKeyboardManager? menuKeyboardManager,
+    this.menuOverlayBuilder,
     this.iconTheme,
   }): desktopDetectorWidgetBuilder =  
         desktopDetectorWidgetBuilder ?? _defaultDesktopDetectorWidgetBuilder,
@@ -180,6 +181,8 @@ class DesktopContextMenuWidget extends StatelessWidget {
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
   final DesktopDetectorWidgetBuilder desktopDetectorWidgetBuilder;
   final MenuKeyboardManager menuKeyboardManager;
+  final DesktopMenuOverlayBuilder? menuOverlayBuilder;
+
   final Widget child;
 
   /// Base icon theme for menu icons. The size will be overridden depending
@@ -198,7 +201,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
           position,
           pointerUpListenable,
           onMenuresolved,
-          requestCloseNotifier: requestCloseNotifier
+          requestCloseNotifier: requestCloseNotifier,
         );
       },
       // Used on web to determine whether to prevent browser context menu
@@ -277,6 +280,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
                 onDone: (value) => completer.complete(value),
                 onInitialPointerUp: onInitialPointerUp,
                 requestCloseNotifier: requestCloseNotifier,
+                menuOverlayBuilder: menuOverlayBuilder,
                 position: globalPosition,
               );
               return completer.future;

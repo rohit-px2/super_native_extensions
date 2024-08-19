@@ -50,3 +50,6 @@ abstract class DesktopMenuWidgetBuilder {
     VoidCallback onActivate,
   );
 }
+
+typedef DesktopMenuOverlayBuilder = 
+  Widget Function(BuildContext context, Widget child);
