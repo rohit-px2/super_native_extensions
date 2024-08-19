@@ -27,6 +27,7 @@ class ContextMenuSession implements MenuContainerDelegate {
           menuWidgetBuilder: menuWidgetBuilder,
           iconTheme: iconTheme,
           onInitialPointerUp: onInitialPointerUp,
+          requestCloseNotifier: requestCloseNotifier,
           keyboardManager: menuKeyboardManager,
         );
       },
