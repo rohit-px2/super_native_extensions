@@ -1231,7 +1231,7 @@ class MainApp extends StatelessWidget {
                   ),
                   Section(
                     description:
-                      const Text('Base context menu, with accelerators that opens when you press Alt.'),
+                      const Text('Base context menu, with accelerators that opens when you press Ctrl.'),
                     child: _KeyboardOpenableContextMenu(),
                   ),
                   Section(

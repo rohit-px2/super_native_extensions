@@ -28,8 +28,9 @@ class MenuContainer extends StatefulWidget {
     required this.iconTheme,
     required this.menuWidgetBuilder,
     required this.delegate,
-    required this.onInitialPointerUp,
     required this.keyboardManager,
+    this.onInitialPointerUp,
+    this.requestCloseNotifier,
   });
 
   final Menu rootMenu;
@@ -37,7 +38,8 @@ class MenuContainer extends StatefulWidget {
   final IconThemeData iconTheme;
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
   final MenuContainerDelegate delegate;
-  final Listenable onInitialPointerUp;
+  final Listenable? onInitialPointerUp;
+  final Listenable? requestCloseNotifier;
   final MenuKeyboardManager keyboardManager;
 
   @override
@@ -66,16 +68,23 @@ class _MenuEntry {
 
 class _MenuContainerState extends State<MenuContainer>
     implements MenuWidgetDelegate {
+
+  void quit() {
+    hide(itemSelected: false);
+  }
+
   @override
   void initState() {
     super.initState();
-    widget.onInitialPointerUp.addListener(_onInitialPointerUp);
+    widget.onInitialPointerUp?.addListener(_onInitialPointerUp);
+    widget.requestCloseNotifier?.addListener(quit);
   }
 
   @override
   void dispose() {
     super.dispose();
-    widget.onInitialPointerUp.removeListener(_onInitialPointerUp);
+    widget.onInitialPointerUp?.removeListener(_onInitialPointerUp);
+    widget.requestCloseNotifier?.removeListener(quit);
   }
 
   void _onInitialPointerUp() {

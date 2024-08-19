@@ -55,7 +55,7 @@ class ContextMenuControl {
 
 }
 
-typedef OnShowContextMenu = Future<void> Function(Offset, Listenable, dynamic Function(bool));
+typedef OnShowContextMenu = Future<void> Function(Offset, Listenable?, dynamic Function(bool), {Listenable? requestCloseNotifier});
 
 class ContextMenuWidget extends StatelessWidget {
   ContextMenuWidget({

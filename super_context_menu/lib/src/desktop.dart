@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:super_context_menu/src/menu_internal.dart';
-import 'package:super_context_menu/src/scaffold/desktop/menu_keyboard_manager.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 
@@ -14,7 +13,6 @@ import 'package:super_native_extensions/raw_menu.dart' as raw;
 import 'package:super_native_extensions/src/mutex.dart';
 
 import 'scaffold/desktop/menu_session.dart';
-import 'scaffold/desktop/menu_widget_builder.dart';
 import 'util.dart';
 
 class _ContextMenuDetector extends StatefulWidget {
@@ -28,8 +26,7 @@ class _ContextMenuDetector extends StatefulWidget {
   final Widget child;
   final HitTestBehavior hitTestBehavior;
   final ContextMenuIsAllowed contextMenuIsAllowed;
-  final Future<void> Function(Offset, Listenable, Function(bool))
-      onShowContextMenu;
+  final OnShowContextMenu onShowContextMenu;
 
   @override
   State<StatefulWidget> createState() => _ContextMenuDetectorState();
@@ -195,12 +192,13 @@ class DesktopContextMenuWidget extends StatelessWidget {
       context: context,
       hitTestBehavior: hitTestBehavior,
       contextMenuIsAllowed: contextMenuIsAllowed,
-      onShowContextMenu: (position, pointerUpListenable, onMenuresolved) async {
+      onShowContextMenu: (position, pointerUpListenable, onMenuresolved, { requestCloseNotifier }) async {
         await _onShowContextMenu(
           context,
           position,
           pointerUpListenable,
           onMenuresolved,
+          requestCloseNotifier: requestCloseNotifier
         );
       },
       // Used on web to determine whether to prevent browser context menu
@@ -233,8 +231,9 @@ class DesktopContextMenuWidget extends StatelessWidget {
   Future<void> _onShowContextMenu(
     BuildContext context,
     Offset globalPosition,
-    Listenable onInitialPointerUp,
+    Listenable? onInitialPointerUp,
     Function(bool) onMenuResolved,
+    { Listenable? requestCloseNotifier, }
   ) async {
     final onShowMenu = SimpleNotifier();
     final onHideMenu = ValueNotifier<raw.MenuResult?>(null);
@@ -277,6 +276,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
                 menuKeyboardManager: menuKeyboardManager,
                 onDone: (value) => completer.complete(value),
                 onInitialPointerUp: onInitialPointerUp,
+                requestCloseNotifier: requestCloseNotifier,
                 position: globalPosition,
               );
               return completer.future;

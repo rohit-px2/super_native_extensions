@@ -10,10 +10,11 @@ class ContextMenuSession implements MenuContainerDelegate {
     required BuildContext context,
     required DesktopMenuWidgetBuilder menuWidgetBuilder,
     required MenuKeyboardManager menuKeyboardManager,
-    required Listenable onInitialPointerUp,
     required Menu menu,
     required Offset position,
     required IconThemeData iconTheme,
+    Listenable? onInitialPointerUp,
+    Listenable? requestCloseNotifier,
     required this.onDone,
   }) {
     final overlay = Overlay.of(context, rootOverlay: true);
