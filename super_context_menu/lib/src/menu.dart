@@ -50,12 +50,7 @@ class DeferredMenuPreview {
 
 typedef ContextMenuIsAllowed = bool Function(Offset location);
 
-/// Control opening and closing of context menu programatically
-class ContextMenuControl {
-
-}
-
-typedef OnShowContextMenu = Future<void> Function(Offset, Listenable?, dynamic Function(bool), {Listenable? requestCloseNotifier});
+typedef OnShowContextMenu = Future<MenuResult?> Function(Offset, Listenable?, dynamic Function(bool), {Listenable? requestCloseNotifier});
 
 class ContextMenuWidget extends StatelessWidget {
   ContextMenuWidget({

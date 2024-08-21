@@ -231,7 +231,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
 
   /// [onMenuResolved] Will be called with true if the provider resolved a valid menu that will be shown,
   ///                  false otherwise.
-  Future<void> _onShowContextMenu(
+  Future<MenuResult?> _onShowContextMenu(
     BuildContext context,
     Offset globalPosition,
     Listenable? onInitialPointerUp,
@@ -261,7 +261,6 @@ class DesktopContextMenuWidget extends StatelessWidget {
         if (!context.mounted) {
           onHideMenu.value = raw.MenuResult(itemSelected: false);
           onMenuResolved(false);
-          return;
         }
         onMenuResolved(true);
         onShowMenu.notify();
@@ -287,6 +286,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
             });
         final res = await menuContext.showContextMenu(request);
         onHideMenu.value = res;
+        return res;
       } else {
         onMenuResolved(false);
       }
@@ -296,5 +296,6 @@ class DesktopContextMenuWidget extends StatelessWidget {
       onHideMenu.dispose();
       handle?.dispose();
     }
+    return null;
   }
 }
