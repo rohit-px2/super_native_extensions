@@ -238,6 +238,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
     Function(bool) onMenuResolved,
     { Listenable? requestCloseNotifier, }
   ) async {
+    MenuResult? menuResult;
     final onShowMenu = SimpleNotifier();
     final onHideMenu = ValueNotifier<raw.MenuResult?>(null);
     final onPreviewAction = SimpleNotifier();
@@ -286,7 +287,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
             });
         final res = await menuContext.showContextMenu(request);
         onHideMenu.value = res;
-        return res;
+        menuResult = res;
       } else {
         onMenuResolved(false);
       }
@@ -296,6 +297,6 @@ class DesktopContextMenuWidget extends StatelessWidget {
       onHideMenu.dispose();
       handle?.dispose();
     }
-    return null;
+    return menuResult;
   }
 }
